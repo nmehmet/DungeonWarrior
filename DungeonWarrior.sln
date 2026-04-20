@@ -5,7 +5,7 @@ VisualStudioVersion = 17.14.37203.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DungeonWarrior", "DungeonWarrior.vcxproj", "{8D3AF86B-C243-4ACD-A38D-D1592F029985}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RaylibEngine", "..\RaylibEngine\RaylibEngine.vcxproj", "{3E75298A-DC73-4BD5-9069-43C24FCE0B3C}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RaylibEngine", "RaylibEngine\RaylibEngine.vcxproj", "{3E75298A-DC73-4BD5-9069-43C24FCE0B3C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
