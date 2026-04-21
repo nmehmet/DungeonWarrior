@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <string>
+#include <typeinfo>
 
 // Game State Enum to follow the current state of the game, whether it's in map mode, combat mode, or game over.
 enum GameState {
@@ -22,6 +23,8 @@ void ResetPosition(Player& player, Monster& monster) {
 	monster.x = 650;
 	monster.y = 260;	
 }
+
+
 
 int main() {
 	srand(time(0));
@@ -54,11 +57,22 @@ int main() {
 	float combatStartTimer = 3.f;
 	float messageDisplayTimer = 3.f;
 
+	float defaultMessageDisplayTimer = 1.5f;
+
 	//Main game loop
 	while (!WindowShouldClose()) {
 		// --- A.Update Logic update in background ---
 		messageDisplayTimer += GetFrameTime();
 		combatStartTimer += GetFrameTime();
+
+		//set a vector for mouse position
+		Vector2 mousePos = GetMousePosition();
+
+		//Set rectangles for the attack and potion buttons
+		Rectangle attackButton = { 100, 500, 150, 40 };
+		Rectangle potionButton = { 100, 550, 150, 40 };
+
+
 		if (currentState == MAP_MODE) {
 			// WASD buttons to move the player
 			if (IsKeyDown(KEY_W)) {
@@ -87,38 +101,38 @@ int main() {
 		}
 		else if (currentState == COMBAT_MODE) {
 			//Combat logic goes here , for now we will just switch back to map mode after 3 seconds
-			if(currentPhase == PLAYER_TURN){
+			if (currentPhase == PLAYER_TURN) {
+
+				//check if the mouse button is pressed
+				if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+					if (CheckCollisionPointRec(mousePos, attackButton)) {
+						Message = TryHit(player, *Target);
+						messageDisplayTimer = 0.f;
+						currentPhase = ENEMY_TURN;//Switch to enemy turn after player action
+					}
+					else if (CheckCollisionPointRec(mousePos, potionButton)) {
+						Message = TryUsePotion(player);
+						messageDisplayTimer = 0.f;
+						currentPhase = ENEMY_TURN;
+					}
+
+				}
+
+
 				if (IsKeyPressed(KEY_ONE)) {//Player Wants to attack
-					if (CanHit(8)) {
-						int damage = GetDamage(player.DamageBonus);
-						Hit(*Target, damage);
-						Message = TextFormat("%d Damage given!", damage);
-						messageDisplayTimer = 0.f;
-					}
-					else {
-						Message = TextFormat("You missed the hit !!");
-						messageDisplayTimer = 0.f;
-					}
+					
+					Message = TryHit(player, *Target);
+					messageDisplayTimer = 0.f;
 					currentPhase = ENEMY_TURN;//Switch to enemy turn after player action
 				}
 				else if (IsKeyPressed(KEY_TWO)) {
-					if (player.PotionCount > 0) {
-						player.PotionCount--;
-						if (player.Health + 6 > 20) player.Health = 20;
-						else player.Health += 6;
-
-						Message = TextFormat("Healed !");
-						messageDisplayTimer = 0.f;
-					}
-					else {
-						Message = TextFormat("Not enough potions !!");
-						messageDisplayTimer = 0.f;
-					}
+					Message = TryUsePotion(player);
+					messageDisplayTimer = 0.f;
 					currentPhase = ENEMY_TURN;//Switch to enemy turn after player action
 				}
 			}
 			else if (currentPhase == ENEMY_TURN) {
-				if(messageDisplayTimer > 3.f){
+				if(messageDisplayTimer > defaultMessageDisplayTimer){
 					if (Target->Health <= 0) {
 						Message = TextFormat("You Killed the enemy!!!");
 						messageDisplayTimer = 0.f;
@@ -129,18 +143,11 @@ int main() {
 						Target = new Monster(wave);
 						ResetPosition(player, *Target);
 						currentState = MAP_MODE;//Switch back to map mode after killing the monster
+						currentPhase = PLAYER_TURN;//Reset combat phase to player turn for the next combat
 					}
 					else {
-						if (CanHit(10)) {
-							int damage = GetDamage(Target->DamageBonus);
-							Hit(player, damage);
-							Message = TextFormat("%d Damage taken!", damage);
-							messageDisplayTimer = 0.f;
-						}
-						else {
-							Message = TextFormat("Enemy Missed the hit !!");
-							messageDisplayTimer = 0.f;
-						}
+						Message = TryHit(*Target, player);
+						messageDisplayTimer = 0.f;
 						currentPhase = PLAYER_TURN;//Switch to enemy turn after player action
 					}
 					if (player.Health <= 0) {
@@ -186,7 +193,7 @@ int main() {
 		DrawText(TextFormat("Monster Health: %d", Target->Health), 600, 10, 20, TargetColor);
 
 		//Draw Message if there is one and the message display timer is smaller than 3 seconds
-		if (messageDisplayTimer < 3 && Message != " ") {
+		if (messageDisplayTimer < defaultMessageDisplayTimer && Message != " ") {
 			DrawRectangle(250, 100, 300, 40, LIGHTGRAY);
 			DrawText(Message.c_str(), 260, 110, 20, BLACK);
 		}
@@ -199,15 +206,24 @@ int main() {
 		}
 
 		//In combat mode we can draw the combat UI and options for the player to choose from
-		else if(currentState == COMBAT_MODE){
+		else if (currentState == COMBAT_MODE) {
 
 			DrawRectangle(200, 200, 50, 50, PlayerColor);
 			DrawRectangle(500, 200, 50, 50, TargetColor);
 
-			DrawRectangle(100,500,150,40,LIGHTGRAY);
-			DrawText(" 1.Attack",100,510,20,BLACK);
+			DrawRectangle(100, 500, 150, 40, LIGHTGRAY);
+			if (CheckCollisionPointRec(mousePos, attackButton)) {
+				DrawRectangle(105, 505, 140, 30, GRAY);
+				if(IsMouseButtonDown(MOUSE_BUTTON_LEFT)) DrawRectangle(105, 505, 140, 30, DARKGRAY);
+		}
+			DrawText(" 1.Attack",110,510,20,BLACK);
+
 			DrawRectangle(100, 550, 150, 40, LIGHTGRAY);
-			DrawText(" 2.Use Potion", 100, 560, 20, BLACK);
+			if (CheckCollisionPointRec(mousePos, potionButton)) {
+				DrawRectangle(105, 555, 140, 30, GRAY);
+				if(IsMouseButtonDown(MOUSE_BUTTON_LEFT)) DrawRectangle(105, 555, 140, 30, DARKGRAY);
+			}
+			DrawText(" 2.Use Potion", 110, 560, 20, BLACK);
 		}
 
 		//Draw Monster and Player
