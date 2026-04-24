@@ -1,21 +1,13 @@
 #include "raylib.h"
 #include "Combat.h"
 #include "GameConfig.h"
+#include "UIHandler.h"
+#include "StateMachine.h"
 #include <cstdlib>
 #include <ctime>
 #include <string>
 #include <typeinfo>
 
-// Game State Enum to follow the current state of the game, whether it's in map mode, combat mode, or game over.
-enum GameState {
-	MAP_MODE,//Player can move around the map and encounter monsters
-	COMBAT_MODE,//Player is in combat with a monster, can attack or use potions
-	GAME_OVER,//Player has died, show game over screen
-};
-enum CombatPhase {
-	PLAYER_TURN,//Player can choose to attack or use potion
-	ENEMY_TURN//Enemy will attack the player
-};
 void ResetPosition(Player& player, Monster& monster) {
 	player.x = 100;
 	player.y = 260;
@@ -40,21 +32,12 @@ int main() {
 	player->x = 100;
 	player->y = 260;
 	player->lookingRight = true;
-	int score = 0;
 
 	//Create Monster and add it to the game
 	Monster* Target = new Monster(1);
 	Target->x = 650;
 	Target->y = 260;
 	Target->lookingRight = false;
-	int wave = 1;
-
-	Color TargetColor = ORANGE;
-	Color PlayerColor = BLUE;
-
-	//Setting the initial game state to map mode
-	GameState currentState = MAP_MODE;
-	CombatPhase currentPhase = PLAYER_TURN;
 
 	std::string Message = " ";
 
@@ -68,15 +51,13 @@ int main() {
 		// --- A.Update Logic update in background ---
 		messageDisplayTimer += GetFrameTime();
 		combatStartTimer += GetFrameTime();
-
-		//set a vector for mouse position
 		Vector2 mousePos = GetMousePosition();
 
 		//Set rectangles for the attack and potion buttons
 		Rectangle attackButton = { 100, 500, 150, 40 };
 		Rectangle potionButton = { 100, 550, 150, 40 };
 
-		if (currentState == MAP_MODE) {
+		if (StateMachine::CurrentState == MAP_MODE) {
 			// WASD buttons to move the player
 			bool wasWalking = player->isWalking;
 			player->isWalking = false;
@@ -108,68 +89,69 @@ int main() {
 			}
 
 			if (CheckCollisionRecs(playerHitbox, targetHitbox)) {
-				currentState = COMBAT_MODE;//Switch to combat mode when player collides with the monster
+				StateMachine::CurrentState = COMBAT_MODE;//Switch to combat mode when player collides with the monster
 				player->isWalking = false;
 				player->lookingRight = true;
 
 				CombatPosition(*player, *Target);
 			
-				TargetColor = RED;//Change monster color to red to indicate combat mode
+				Target->BarColor = RED;//Change monster color to red to indicate combat mode
 				combatStartTimer = 0.f;
 			}
 		}
-		else if (currentState == COMBAT_MODE) {
+		else if (StateMachine::CurrentState == COMBAT_MODE) {
 			//Combat logic goes here , for now we will just switch back to map mode after 3 seconds
-			if (currentPhase == PLAYER_TURN) {
+			if (StateMachine::CurrentCombatPhase == PLAYER_TURN && combatStartTimer > 3.0f) {
 				//check if the mouse button is pressed
 				if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
 					if (CheckCollisionPointRec(mousePos, attackButton)) {
 						Message = TryHit(*player, *Target);
 						messageDisplayTimer = 0.f;
-						currentPhase = ENEMY_TURN;//Switch to enemy turn after player action
+						StateMachine::ChangeCombatPhase(CombatPhase::ENEMY_TURN);//Switch to enemy turn after player action
 					}
 					else if (CheckCollisionPointRec(mousePos, potionButton)) {
 						Message = TryUsePotion(*player);
 						messageDisplayTimer = 0.f;
-						currentPhase = ENEMY_TURN;
+						StateMachine::ChangeCombatPhase(CombatPhase::ENEMY_TURN);
 					}
 				}
 				if (IsKeyPressed(KEY_ONE)) {//Player Wants to attack
 					
 					Message = TryHit(*player, *Target);
 					messageDisplayTimer = 0.f;
-					currentPhase = ENEMY_TURN;//Switch to enemy turn after player action
+					StateMachine::ChangeCombatPhase(CombatPhase::ENEMY_TURN);//Switch to enemy turn after player action
 				}
 				else if (IsKeyPressed(KEY_TWO)) {
 					Message = TryUsePotion(*player);
 					messageDisplayTimer = 0.f;
-					currentPhase = ENEMY_TURN;//Switch to enemy turn after player action
+					StateMachine::ChangeCombatPhase(CombatPhase::ENEMY_TURN);//Switch to enemy turn after player action
 				}
 			}
-			else if (currentPhase == ENEMY_TURN) {
+			else if (StateMachine::CurrentCombatPhase == ENEMY_TURN) {
 				if(messageDisplayTimer > defaultMessageDisplayTimer){
 					if (Target->Health <= 0) {
 						Message = TextFormat("You Killed the enemy!!!");
 						messageDisplayTimer = 0.f;
-						score += 10;
-						wave += 1;
+						StateMachine::Score += 10;
+						StateMachine::Wave += 1;
 						player->DamageBonus += 1;
 						delete Target;
-						Target = new Monster(wave);
+						Target = new Monster(StateMachine::Wave);
+						Target->lookingRight = false;
 						ResetPosition(*player, *Target);
-						currentState = MAP_MODE;//Switch back to map mode after killing the monster
-						currentPhase = PLAYER_TURN;//Reset combat phase to player turn for the next combat
-						TargetColor = ORANGE;//Change monster color back to orange to indicate map mode
+						StateMachine::ChangeState(GameState::MAP_MODE);//Switch back to map mode after killing the monster
+						StateMachine::ChangeCombatPhase(CombatPhase::PLAYER_TURN);//Reset combat phase to player turn for the next combat
+						Target->BarColor = ORANGE;//Change monster color back to orange to indicate map mode
 					}
 					else {
 						Message = TryHit(*Target, *player);
 						messageDisplayTimer = 0.f;
-						currentPhase = PLAYER_TURN;//Switch to enemy turn after player action
+						StateMachine::ChangeCombatPhase(CombatPhase::PLAYER_TURN);//Switch to enemy turn after player action
 					}
 					if (player->Health <= 0) {
 						Message = TextFormat("You Died !!!");
 						messageDisplayTimer = 0.f;
-						currentState = GAME_OVER;//Switch to game over state after player dies
+						StateMachine::ChangeState(GameState::GAME_OVER);//Switch to game over state after player dies
 					}
 				}
 			}
@@ -192,72 +174,25 @@ int main() {
 		Vector2 targetPos = { (float)Target->x, (float)Target->y };
 		Rectangle targetDestRec = { (float)targetPos.x + 25.0f, (float)targetPos.y + 25.0f, Target->ScaledSize, Target->ScaledSize };
 		Vector2 targetOrigin = { Target->ScaledSize / 2, Target->ScaledSize / 2 };
+		
 		Target->UpdateAnimation(GetFrameTime());
 
 		//Draw Player and Monster
 		DrawTexturePro(Target->Sprite, Target->FrameRec, targetDestRec, targetOrigin, 0.0f, WHITE);
 		DrawTexturePro(player->Sprite, player->FrameRec, destRec, origin, 0.0f, WHITE);
 
-		if(currentState == GAME_OVER){
-			DrawRectangle(250, 100, 300, 40, LIGHTGRAY);
-			DrawText(TextFormat("Game Over! Score: %d", score), 260, 110, 20, BLACK);
-			EndDrawing();
-			continue;
-		}
+		UIHandler::DrawGameHUD(*player, *Target);
 
 		//if the Combat statrt timer is smaller than 3 seconds we can draw a "Combat Starting in..." text to indicate the player that combat is about to start
-		if (combatStartTimer < 3) {
+		if (combatStartTimer < 3 && StateMachine::CurrentState == COMBAT_MODE) {
 			DrawRectangle(250, 100, 300, 40, LIGHTGRAY);
 			DrawText(TextFormat("Combat Begins..."), 260, 110, 20, BLACK);
 		}
 
-		//Draw Player Health Bar
-		DrawRectangle(10, 35, 200, 20, GRAY);
-		DrawRectangle(12, 37, (int)(200 * ((float)player->Health / player->MaxHealth) - 4), 16, PlayerColor);
-
-		//Draw status Texts
-		DrawText(TextFormat("Player Health: %d", player->Health), 10, 10, 20, PlayerColor);
-		for (int i = 1; i <= 3; i++)
-		{
-			int startX = 15 * i;
-			DrawRectangle(startX, 60, 10, 10, PlayerColor);
-			if (i > player->PotionCount) {
-				DrawRectangle(startX + 2, 62, 6, 6, RAYWHITE);
-			}
-		}
-		
-		DrawText(TextFormat("Monster Health: %d", Target->Health), 600, 10, 20, TargetColor);
-		//Draw Monster Health Bar
-		DrawRectangle(590, 35, 200, 20, GRAY);
-		float healthBarWidth = 200 * ((float)Target->Health / Target->MaxHealth) - 4;
-		float barStartX = 788 - healthBarWidth;
-		DrawRectangle((int)barStartX, 37, (int)healthBarWidth, 16, TargetColor);
-
-
 		//Draw Message if there is one and the message display timer is smaller than 3 seconds
-		if ((int)messageDisplayTimer < (int)defaultMessageDisplayTimer && Message != " ") {
+		if ((int)messageDisplayTimer < (int)defaultMessageDisplayTimer && Message != " " && StateMachine::CurrentState == COMBAT_MODE) {
 			DrawRectangle(250, 100, 300, 40, LIGHTGRAY);
 			DrawText(Message.c_str(), (int)260, 110, 20, BLACK);
-		}
-
-		//In combat mode we can draw the combat UI and options for the player to choose from
-		if (currentState == COMBAT_MODE) {
-
-			
-
-			DrawRectangle(100, 500, 150, 40, LIGHTGRAY);
-			if (CheckCollisionPointRec(mousePos, attackButton)) {
-				DrawRectangle(105, 505, 140, 30, GRAY);
-				if(IsMouseButtonDown(MOUSE_BUTTON_LEFT)) DrawRectangle(105, 505, 140, 30, DARKGRAY);
-		}
-			DrawText(" 1.Attack",110,510,20,BLACK);
-
-			DrawRectangle(100, 550, 150, 40, LIGHTGRAY);
-			if (CheckCollisionPointRec(mousePos, potionButton)) {
-				DrawRectangle(105, 555, 140, 30, GRAY);
-				if(IsMouseButtonDown(MOUSE_BUTTON_LEFT)) DrawRectangle(105, 555, 140, 30, DARKGRAY);
-			}
-			DrawText(" 2.Use Potion", 110, 560, 20, BLACK);
 		}
 
 #pragma endregion

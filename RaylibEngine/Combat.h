@@ -11,7 +11,8 @@ struct Character
 	int AC = 0;
 	int x = 0;
 	int y = 0;
-	//Base attributes for animation and sprite handling
+	//Base attributes for animation and sprite handling;
+	Color BarColor = WHITE;
 	Texture2D Sprite = {};
 	Rectangle FrameRec = {};
 	float Scale = 0.0f;
@@ -53,6 +54,7 @@ struct Player:Character
 		//Loading and editing player texture
 		Sprite = LoadTexture("resources/Soldier.png");
 		SetTextureFilter(Sprite, TEXTURE_FILTER_POINT);
+		BarColor = BLUE;
 		Scale = 2.5f;
 		ScaledSize = 100.0f * Scale;
 		FrameRec = { 0.0f, 0.0f, 100.0f, 100.0f };
@@ -92,6 +94,7 @@ struct Monster : Character
 		AC = 5 + _wave;
 		Sprite = LoadTexture("resources/Orc.png");
 		SetTextureFilter(Sprite, TEXTURE_FILTER_POINT);
+		BarColor = ORANGE;
 		Scale = 2.5f;
 		ScaledSize = 100.0f * Scale;
 		FrameRec = { 0.0f, 0.0f, 100.0f, 100.0f };

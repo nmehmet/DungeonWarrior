@@ -1,6 +1,4 @@
 #pragma once
-
-
 namespace GameConfig {
 	constexpr int ScreenWidth = 800;
 	constexpr int ScreenHeight = 600;

@@ -24,12 +24,24 @@
     <ClCompile Include="CreateWındowExample.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="UIHandler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StateMachine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Combat.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="GameConfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="UIHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StateMachine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
