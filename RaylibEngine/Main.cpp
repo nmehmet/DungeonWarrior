@@ -23,6 +23,12 @@ void ResetPosition(Player& player, Monster& monster) {
 	monster.x = 650;
 	monster.y = 260;	
 }
+void CombatPosition(Player& player, Monster& monster) {
+	player.x = 200;
+	player.y = 200;
+	monster.x = 500;
+	monster.y = 200;
+}
 
 
 
@@ -56,17 +62,46 @@ int main() {
 
 	float combatStartTimer = 3.f;
 	float messageDisplayTimer = 3.f;
+	float idleAnimationTimer = 0.f;
+	float walkingAnimationTimer = 0.f;
 
 	float defaultMessageDisplayTimer = 1.5f;
 
+	//initalize player sprites and textures here if needed
+	Texture2D playerSprite = LoadTexture("resources/Soldier.png");
+	SetTextureFilter(playerSprite, TEXTURE_FILTER_POINT);
+	
+	Rectangle playerFrameRec = {0.0f, 0.0f, 100.0f, 100.0f};
+	
+	//IDLE animation variables
+	float idleAnimationSpeed = 0.25f;
+	int idleAnimationFrameCount = 6;
+
+	//WALKING animation variables
+	float walkingAnimationSpeed = 0.10f;
+	int walkingAnimationFrameCount = 8;
+	float walkingAnimationY = 100.0f;
+
+	float playerScaleFactor = 2.5f;
+	float playerScaledSize = 100.0f * playerScaleFactor;
+
+
+	//bool variables to control the animation state of the player
+	bool isWalking = false;
+	bool isAttacking = false;
+	bool isUsingPotion = false;
+	bool lookingRight = true;
+
 	//Main game loop
 	while (!WindowShouldClose()) {
+#pragma region Update Logic
 		// --- A.Update Logic update in background ---
 		messageDisplayTimer += GetFrameTime();
 		combatStartTimer += GetFrameTime();
 
 		//set a vector for mouse position
 		Vector2 mousePos = GetMousePosition();
+		
 
 		//Set rectangles for the attack and potion buttons
 		Rectangle attackButton = { 100, 500, 150, 40 };
@@ -75,18 +110,25 @@ int main() {
 
 		if (currentState == MAP_MODE) {
 			// WASD buttons to move the player
+			isWalking = false;
 			if (IsKeyDown(KEY_W)) {
+				isWalking = true;
 				if(player.y >= 5)player.y -= 5;//Move up
 			}
 			if (IsKeyDown(KEY_S)) {
+				isWalking = true;
 				if(player.y <= 545)player.y += 5;//Move down
 			}
 			if (IsKeyDown(KEY_A)) {
+				lookingRight = false;
+				isWalking = true;
 				if(player.x >= 5)player.x -= 5;//Move left
 			}
 			if (IsKeyDown(KEY_D)) {
+				lookingRight = true;
+				isWalking = true;
 				if(player.x <= 745)player.x += 5;//Move right
-			}	
+			}
 
 			//Draw Hitbox
 			Rectangle playerHitbox = { (float)player.x, (float)player.y,50,50 };
@@ -94,7 +136,10 @@ int main() {
 
 			if (CheckCollisionRecs(playerHitbox, targetHitbox)) {
 				currentState = COMBAT_MODE;//Switch to combat mode when player collides with the monster
-				
+				isWalking = false;
+
+				CombatPosition(player, *Target);
+			
 				TargetColor = RED;//Change monster color to red to indicate combat mode
 				combatStartTimer = 0.f;
 			}
@@ -144,6 +189,7 @@ int main() {
 						ResetPosition(player, *Target);
 						currentState = MAP_MODE;//Switch back to map mode after killing the monster
 						currentPhase = PLAYER_TURN;//Reset combat phase to player turn for the next combat
+						TargetColor = ORANGE;//Change monster color back to orange to indicate map mode
 					}
 					else {
 						Message = TryHit(*Target, player);
@@ -160,8 +206,9 @@ int main() {
 
 			
 		}
+#pragma endregion
 		
-		
+#pragma region Draw Logic
 		// --- B.Draw Logic update in foreground ---
 		BeginDrawing();
 		ClearBackground(RAYWHITE);
@@ -197,19 +244,11 @@ int main() {
 			DrawRectangle(250, 100, 300, 40, LIGHTGRAY);
 			DrawText(Message.c_str(), 260, 110, 20, BLACK);
 		}
-		
-		//Draw the map and the characters based on the current game state
-		if (currentState == MAP_MODE) {
-			//Draw Player and Monster
-			DrawRectangle(Target->x, Target->y, 50, 50, TargetColor);
-			DrawRectangle(player.x, player.y, 50, 50, PlayerColor);
-		}
 
 		//In combat mode we can draw the combat UI and options for the player to choose from
-		else if (currentState == COMBAT_MODE) {
+		if (currentState == COMBAT_MODE) {
 
-			DrawRectangle(200, 200, 50, 50, PlayerColor);
-			DrawRectangle(500, 200, 50, 50, TargetColor);
+			
 
 			DrawRectangle(100, 500, 150, 40, LIGHTGRAY);
 			if (CheckCollisionPointRec(mousePos, attackButton)) {
@@ -226,12 +265,47 @@ int main() {
 			DrawText(" 2.Use Potion", 110, 560, 20, BLACK);
 		}
 
-		//Draw Monster and Player
+		//set a vector for player position to use in drawing the player sprite
+		Vector2 playerPos = { (float)player.x, (float)player.y };
+
+		Rectangle destRec = { (float)playerPos.x + 25.0f, (float)playerPos.y + 25.0f, playerScaledSize, playerScaledSize};
+		Vector2 origin = { playerScaledSize / 2, playerScaledSize / 2 };
+
+		//Draw Player and Monster
+		DrawRectangle(Target->x, Target->y, 50, 50, TargetColor);
+		
+		if (isWalking) {
+			walkingAnimationTimer += GetFrameTime();
+			int currentWalkingFrame = (int)(walkingAnimationTimer / walkingAnimationSpeed) % walkingAnimationFrameCount;//Calculate the current frame index based on the timer
+			playerFrameRec = {
+				(float)(currentWalkingFrame * 100),
+				walkingAnimationY,
+				100.0f,
+				100.0f
+			};
+		}
+		else if (!isAttacking && !isUsingPotion) {
+
+			idleAnimationTimer += GetFrameTime();	 
+			int currentIdleFrame = (int)(idleAnimationTimer / idleAnimationSpeed) % idleAnimationFrameCount;//Calculate the current frame index based on the timer
+			playerFrameRec = {
+				(float)(currentIdleFrame * 100), // x position of the current frame in the sprite sheet
+				0.0f, // y position (assuming all frames are in a single row)
+				100.0f, // width of each frame
+				100.0f // height of each frame
+			};
+		}
+		
+		if (!lookingRight) playerFrameRec.width = -100.0f;
+		DrawTexturePro(playerSprite, playerFrameRec, destRec, origin, 0.0f, WHITE);
+
+#pragma endregion
 
 		EndDrawing();
 	}
 
 	//Clear Memory and Exit
+	UnloadTexture(playerSprite);
 	delete Target;
 	CloseWindow();
 
