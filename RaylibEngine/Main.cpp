@@ -15,8 +15,6 @@ enum CombatPhase {
 	PLAYER_TURN,//Player can choose to attack or use potion
 	ENEMY_TURN//Enemy will attack the player
 };
-
-
 void ResetPosition(Player& player, Monster& monster) {
 	player.x = 100;
 	player.y = 260;
@@ -29,9 +27,6 @@ void CombatPosition(Player& player, Monster& monster) {
 	monster.x = 500;
 	monster.y = 200;
 }
-
-
-
 int main() {
 	srand(time(0));
 
@@ -62,35 +57,7 @@ int main() {
 
 	float combatStartTimer = 3.f;
 	float messageDisplayTimer = 3.f;
-	float idleAnimationTimer = 0.f;
-	float walkingAnimationTimer = 0.f;
-
 	float defaultMessageDisplayTimer = 1.5f;
-
-	//initalize player sprites and textures here if needed
-	Texture2D playerSprite = LoadTexture("resources/Soldier.png");
-	SetTextureFilter(playerSprite, TEXTURE_FILTER_POINT);
-	
-	Rectangle playerFrameRec = {0.0f, 0.0f, 100.0f, 100.0f};
-	
-	//IDLE animation variables
-	float idleAnimationSpeed = 0.25f;
-	int idleAnimationFrameCount = 6;
-
-	//WALKING animation variables
-	float walkingAnimationSpeed = 0.10f;
-	int walkingAnimationFrameCount = 8;
-	float walkingAnimationY = 100.0f;
-
-	float playerScaleFactor = 2.5f;
-	float playerScaledSize = 100.0f * playerScaleFactor;
-
-
-	//bool variables to control the animation state of the player
-	bool isWalking = false;
-	bool isAttacking = false;
-	bool isUsingPotion = false;
-	bool lookingRight = true;
 
 	//Main game loop
 	while (!WindowShouldClose()) {
@@ -110,23 +77,24 @@ int main() {
 
 		if (currentState == MAP_MODE) {
 			// WASD buttons to move the player
-			isWalking = false;
+			bool wasWalking = player.isWalking;
+			player.isWalking = false;
 			if (IsKeyDown(KEY_W)) {
-				isWalking = true;
+				player.isWalking = true;
 				if(player.y >= 5)player.y -= 5;//Move up
 			}
 			if (IsKeyDown(KEY_S)) {
-				isWalking = true;
+				player.isWalking = true;
 				if(player.y <= 545)player.y += 5;//Move down
 			}
 			if (IsKeyDown(KEY_A)) {
-				lookingRight = false;
-				isWalking = true;
+				player.lookingRight = false;
+				player.isWalking = true;
 				if(player.x >= 5)player.x -= 5;//Move left
 			}
 			if (IsKeyDown(KEY_D)) {
-				lookingRight = true;
-				isWalking = true;
+				player.lookingRight = true;
+				player.isWalking = true;
 				if(player.x <= 745)player.x += 5;//Move right
 			}
 
@@ -134,9 +102,14 @@ int main() {
 			Rectangle playerHitbox = { (float)player.x, (float)player.y,50,50 };
 			Rectangle targetHitbox = { (float)Target->x, (float)Target->y,50,50 };
 
+			if (wasWalking && !player.isWalking) {
+				player.walkingAnimationTimer = 0.f;//Reset walking animation timer when player stops walking to reset the animation to the first frame when the player starts walking again
+			}
+
 			if (CheckCollisionRecs(playerHitbox, targetHitbox)) {
 				currentState = COMBAT_MODE;//Switch to combat mode when player collides with the monster
-				isWalking = false;
+				player.isWalking = false;
+				player.lookingRight = true;
 
 				CombatPosition(player, *Target);
 			
@@ -213,6 +186,18 @@ int main() {
 		BeginDrawing();
 		ClearBackground(RAYWHITE);
 
+		//set a vector for player position to use in drawing the player sprite
+		Vector2 playerPos = { (float)player.x, (float)player.y };
+
+		Rectangle destRec = { (float)playerPos.x + 25.0f, (float)playerPos.y + 25.0f, player.ScaledSize, player.ScaledSize };
+		Vector2 origin = { player.ScaledSize / 2, player.ScaledSize / 2 };
+
+		player.UpdateAnimation(GetFrameTime());
+
+		//Draw Player and Monster
+		DrawRectangle(Target->x, Target->y, 50, 50, TargetColor);
+		DrawTexturePro(player.Sprite, player.FrameRec, destRec, origin, 0.0f, WHITE);
+
 		if(currentState == GAME_OVER){
 			DrawRectangle(250, 100, 300, 40, LIGHTGRAY);
 			DrawText(TextFormat("Game Over! Score: %d", score), 260, 110, 20, BLACK);
@@ -226,18 +211,28 @@ int main() {
 			DrawText(TextFormat("Combat Begins..."), 260, 110, 20, BLACK);
 		}
 
+		//Draw Player Health Bar
+		DrawRectangle(10, 35, 200, 20, GRAY);
+		DrawRectangle(12, 37, 200 * ((float)player.Health / player.MaxHealth) -4, 16, PlayerColor);
 
 		//Draw status Texts
 		DrawText(TextFormat("Player Health: %d", player.Health), 10, 10, 20, PlayerColor);
 		for (int i = 1; i <= 3; i++)
 		{
 			int startX = 15 * i;
-			DrawRectangle(startX, 40, 10, 10, PlayerColor);
+			DrawRectangle(startX, 60, 10, 10, PlayerColor);
 			if (i > player.PotionCount) {
-				DrawRectangle(startX + 2, 42, 6, 6, RAYWHITE);
+				DrawRectangle(startX + 2, 62, 6, 6, RAYWHITE);
 			}
 		}
+		
 		DrawText(TextFormat("Monster Health: %d", Target->Health), 600, 10, 20, TargetColor);
+		//Draw Monster Health Bar
+		DrawRectangle(590, 35, 200, 20, GRAY);
+		float healthBarWidth = 200 * ((float)Target->Health / Target->MaxHealth) - 4;
+		float barStartX = 788 - healthBarWidth;
+		DrawRectangle(barStartX, 37, healthBarWidth, 16, TargetColor);
+
 
 		//Draw Message if there is one and the message display timer is smaller than 3 seconds
 		if (messageDisplayTimer < defaultMessageDisplayTimer && Message != " ") {
@@ -265,47 +260,12 @@ int main() {
 			DrawText(" 2.Use Potion", 110, 560, 20, BLACK);
 		}
 
-		//set a vector for player position to use in drawing the player sprite
-		Vector2 playerPos = { (float)player.x, (float)player.y };
-
-		Rectangle destRec = { (float)playerPos.x + 25.0f, (float)playerPos.y + 25.0f, playerScaledSize, playerScaledSize};
-		Vector2 origin = { playerScaledSize / 2, playerScaledSize / 2 };
-
-		//Draw Player and Monster
-		DrawRectangle(Target->x, Target->y, 50, 50, TargetColor);
-		
-		if (isWalking) {
-			walkingAnimationTimer += GetFrameTime();
-			int currentWalkingFrame = (int)(walkingAnimationTimer / walkingAnimationSpeed) % walkingAnimationFrameCount;//Calculate the current frame index based on the timer
-			playerFrameRec = {
-				(float)(currentWalkingFrame * 100),
-				walkingAnimationY,
-				100.0f,
-				100.0f
-			};
-		}
-		else if (!isAttacking && !isUsingPotion) {
-
-			idleAnimationTimer += GetFrameTime();	 
-			int currentIdleFrame = (int)(idleAnimationTimer / idleAnimationSpeed) % idleAnimationFrameCount;//Calculate the current frame index based on the timer
-			playerFrameRec = {
-				(float)(currentIdleFrame * 100), // x position of the current frame in the sprite sheet
-				0.0f, // y position (assuming all frames are in a single row)
-				100.0f, // width of each frame
-				100.0f // height of each frame
-			};
-		}
-		
-		if (!lookingRight) playerFrameRec.width = -100.0f;
-		DrawTexturePro(playerSprite, playerFrameRec, destRec, origin, 0.0f, WHITE);
-
 #pragma endregion
 
 		EndDrawing();
 	}
 
 	//Clear Memory and Exit
-	UnloadTexture(playerSprite);
 	delete Target;
 	CloseWindow();
 
