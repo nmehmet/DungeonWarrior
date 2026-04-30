@@ -1,2 +1,6 @@
-﻿  MapHandler.cpp
+﻿  Combat.cpp
+  Main.cpp
+  MapHandler.cpp
+  UIHandler.cpp
+  Generating Code...
   RaylibEngine.vcxproj -> D:\Dosyalar\YAZILIM\CPP\DungeonWarrior\DungeonWarrior\x64\Debug\RaylibEngine.exe

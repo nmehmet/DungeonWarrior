@@ -17,9 +17,9 @@ void ResetPosition(Player& player, Monster& monster) {
 }
 void CombatPosition(Player& player, Monster& monster) {
 	player.x = 200;
-	player.y = 200;
+	player.y = 300;
 	monster.x = 500;
-	monster.y = 200;
+	monster.y = 300;
 }
 int main() {
 	srand((unsigned int)time(0));
@@ -44,7 +44,6 @@ int main() {
 	std::string Message = " ";
 
 	float combatStartTimer = 3.f;
-	float messageDisplayTimer = 3.f;
 	float defaultMessageDisplayTimer = 1.5f;
 
 	//map woring
@@ -71,7 +70,7 @@ int main() {
 	while (!WindowShouldClose()) {
 #pragma region Update Logic
 		// --- A.Update Logic update in background ---
-		messageDisplayTimer += GetFrameTime();
+		StateMachine::MessageDisplayTimer += GetFrameTime();
 		combatStartTimer += GetFrameTime();
 		Vector2 mousePos = GetMousePosition();
 
@@ -129,35 +128,18 @@ int main() {
 			//Combat logic goes here , for now we will just switch back to map mode after 3 seconds
 			if (StateMachine::CurrentCombatPhase == PLAYER_TURN && combatStartTimer > 3.0f) {
 				//check if the mouse button is pressed
-				if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-					if (CheckCollisionPointRec(mousePos, attackButton)) {
-						Message = TryHit(*player, *Target);
-						messageDisplayTimer = 0.f;
-						StateMachine::ChangeCombatPhase(CombatPhase::ENEMY_TURN);//Switch to enemy turn after player action
-					}
-					else if (CheckCollisionPointRec(mousePos, potionButton)) {
-						Message = TryUsePotion(*player);
-						messageDisplayTimer = 0.f;
-						StateMachine::ChangeCombatPhase(CombatPhase::ENEMY_TURN);
-					}
-				}
-				if (IsKeyPressed(KEY_ONE)) {//Player Wants to attack
-					
+				if ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mousePos, attackButton)) || IsKeyPressed(KEY_ONE)) {//Players wants to attack
 					Message = TryHit(*player, *Target);
-					messageDisplayTimer = 0.f;
-					StateMachine::ChangeCombatPhase(CombatPhase::ENEMY_TURN);//Switch to enemy turn after player action
 				}
-				else if (IsKeyPressed(KEY_TWO)) {
+				else if ((IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mousePos, potionButton)) || IsKeyPressed(KEY_TWO)) {
 					Message = TryUsePotion(*player);
-					messageDisplayTimer = 0.f;
-					StateMachine::ChangeCombatPhase(CombatPhase::ENEMY_TURN);//Switch to enemy turn after player action
 				}
 			}
 			else if (StateMachine::CurrentCombatPhase == ENEMY_TURN) {
-				if(messageDisplayTimer > defaultMessageDisplayTimer){
+				if(StateMachine::MessageDisplayTimer > defaultMessageDisplayTimer){
 					if (Target->Health <= 0) {
 						Message = TextFormat("You Killed the enemy!!!");
-						messageDisplayTimer = 0.f;
+						StateMachine::MessageDisplayTimer = 0.f;
 						StateMachine::Score += 10;
 						StateMachine::Wave += 1;
 						player->DamageBonus += 1;
@@ -171,15 +153,17 @@ int main() {
 					}
 					else {
 						Message = TryHit(*Target, *player);
-						messageDisplayTimer = 0.f;
-						StateMachine::ChangeCombatPhase(CombatPhase::PLAYER_TURN);//Switch to enemy turn after player action
 					}
 					if (player->Health <= 0) {
 						Message = TextFormat("You Died !!!");
-						messageDisplayTimer = 0.f;
 						StateMachine::ChangeState(GameState::GAME_OVER);//Switch to game over state after player dies
 					}
 				}
+			}
+			if (StateMachine::InfluenceDamage) {
+				player->InfluenceDamage();
+				Target->InfluenceDamage();
+				StateMachine::InfluenceDamage = false;
 			}
 
 			
@@ -223,8 +207,8 @@ int main() {
 		Target->UpdateAnimation(GetFrameTime());
 
 		//Draw Player and Monster
-		DrawTexturePro(Target->Sprite, Target->FrameRec, targetDestRec, targetOrigin, 0.0f, WHITE);
-		DrawTexturePro(player->Sprite, player->FrameRec, destRec, origin, 0.0f, WHITE);
+		DrawTexturePro(Target->Sprite, Target->FrameRec, targetDestRec, targetOrigin, 0.0f, Target->SpriteTint);
+		DrawTexturePro(player->Sprite, player->FrameRec, destRec, origin, 0.0f, player->SpriteTint);
 
 		UIHandler::DrawGameHUD(*player, *Target);
 
@@ -235,7 +219,7 @@ int main() {
 		}
 
 		//Draw Message if there is one and the message display timer is smaller than 3 seconds
-		if ((int)messageDisplayTimer < (int)defaultMessageDisplayTimer && Message != " " && StateMachine::CurrentState == COMBAT_MODE) {
+		if ((int)StateMachine::MessageDisplayTimer < (int)defaultMessageDisplayTimer && Message != " " && StateMachine::CurrentState == COMBAT_MODE) {
 			DrawRectangle(250, 100, 300, 40, LIGHTGRAY);
 			DrawText(Message.c_str(), (int)260, 110, 20, BLACK);
 		}

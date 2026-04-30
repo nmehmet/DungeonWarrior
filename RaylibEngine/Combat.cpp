@@ -1,6 +1,7 @@
 #include <iostream>
 #include "raylib.h"
 #include "Combat.h"
+#include "StateMachine.h"
 #include <cstdlib>
 #include <ctime>
 #include <string>
@@ -24,9 +25,12 @@ int GetDamage(int bonus) {
 	return (rand() % 6) + 1 + bonus;
 }
 void Hit(Character& character, int damage) {
-	character.Health -= damage;
+	character.DamageTaken = damage;
 }
 std::string TryHit(Character& _hitter, Character& _target) {
+	_hitter.isAttacking = true;
+	_hitter.attackingAnimationTimer = 0.f;
+	StateMachine::CurrentCombatPhase = WAITING;//Switch to waiting phase to show attack animation and message before switching to the next turn
 	if (CanHit(_target.AC)) {
 		int damage = GetDamage(_hitter.DamageBonus);
 		Hit(_target, damage);
@@ -50,10 +54,15 @@ std::string TryHit(Character& _hitter, Character& _target) {
 }
 
 std::string TryUsePotion(Player& _player) {
+	StateMachine::MessageDisplayTimer = 0.f;
+	StateMachine::ChangeCombatPhase(WAITING);
 	if (_player.PotionCount > 0) {
 		_player.PotionCount--;
 		if (_player.Health + 6 > 20) _player.Health = 20;
 		else _player.Health += 6;
+
+		_player.SpriteTint = GREEN;
+		_player.healTintTimer = 0.5f;
 
 		return TextFormat("Healed !");
 	}

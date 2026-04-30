@@ -7,7 +7,8 @@ enum GameState {
 };
 enum CombatPhase {
 	PLAYER_TURN,//Player can choose to attack or use potion
-	ENEMY_TURN//Enemy will attack the player
+	ENEMY_TURN,//Enemy will attack the player
+	WAITING,//Waiting phase between player and enemy turns to show messages and animations 
 };
 
 struct StateMachine {
@@ -15,6 +16,8 @@ struct StateMachine {
 	static CombatPhase CurrentCombatPhase;
 	static int Score;
 	static int Wave;
+	static float MessageDisplayTimer;
+	static bool InfluenceDamage;
 	static void ChangeState(GameState newState);
 	static void ChangeCombatPhase(CombatPhase newPhase);
 };
