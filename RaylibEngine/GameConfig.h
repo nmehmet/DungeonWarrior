@@ -1,7 +1,7 @@
 #pragma once
 namespace GameConfig {
-	constexpr int ScreenWidth = 800;
-	constexpr int ScreenHeight = 600;
+	constexpr int ScreenWidth = 800;// 50 tiles
+	constexpr int ScreenHeight = 600;// 37.5 tiles
 	constexpr int TargetFPS = 60;
 	constexpr const char* WindowTitle = "DungeonWarrior - Raylib Edition";
 

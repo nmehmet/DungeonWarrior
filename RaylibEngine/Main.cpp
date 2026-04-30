@@ -2,6 +2,7 @@
 #include "Combat.h"
 #include "GameConfig.h"
 #include "UIHandler.h"
+#include "MapHandler.h"
 #include "StateMachine.h"
 #include <cstdlib>
 #include <ctime>
@@ -32,6 +33,7 @@ int main() {
 	player->x = 100;
 	player->y = 260;
 	player->lookingRight = true;
+	int walkSpeed = 5;
 
 	//Create Monster and add it to the game
 	Monster* Target = new Monster(1);
@@ -45,6 +47,26 @@ int main() {
 	float messageDisplayTimer = 3.f;
 	float defaultMessageDisplayTimer = 1.5f;
 
+	//map woring
+	Texture2D MapTileMapTexture = LoadTexture("resources/walls_floor.png");
+	SetTextureFilter(MapTileMapTexture, TEXTURE_FILTER_POINT);
+	MapHandler::LoadMap("resources/Level1.txt");
+
+	int tileSize = 32;
+
+	Rectangle MapTileRecs[20] = {
+		{ 192.0f, 336.0f, 16.0f, 16.0f },//Tiled Floor 3 {0}
+		{ 7.0f, 85.0f, 16.0f, 16.0f },//Floor {1}
+		{ 176.0f, 336.0f, 16.0f, 16.0f },//Tiled Floor 1 {2}
+		{ 176.0f, 352.0f, 16.0f, 16.0f },//Tiled Floor 2 {3}
+		{ 192.0f, 352.0f, 16.0f, 16.0f },//Tiled Floor 4 {4}
+		{ 16.0f, 64.0f, 16.0f, 16.0f },//Wall Bottom {5}
+		{ 16.0f, 48.0f, 16.0f, 16.0f },//Wall Middle {6}
+		{ 16.0f, 32.0f, 16.0f, 16.0f },//Wall Top {7}
+		{ 16.0f, 0.0f, 16.0f, 16.0f },//Wall back {8}
+		{ 16.0f, 16.0f, 16.0f, 16.0f },//Wall black {9}
+		{ 64.0f, 112.0f, 16.0f, 16.0f },//floor wall corner {10}
+	};
 	//Main game loop
 	while (!WindowShouldClose()) {
 #pragma region Update Logic
@@ -63,21 +85,25 @@ int main() {
 			player->isWalking = false;
 			if (IsKeyDown(KEY_W)) {
 				player->isWalking = true;
-				if(player->y >= GameConfig::MapBoundaryMinY)player->y -= 5;//Move up
+				Rectangle nextHitbox = {(float)player->x, (float)player->y - walkSpeed, 50, 50};
+				if (!MapHandler::CheckCollision(nextHitbox, tileSize)) player->y -= walkSpeed;//Move up
 			}
 			if (IsKeyDown(KEY_S)) {
 				player->isWalking = true;
-				if(player->y <= GameConfig::MapBoundaryMaxY)player->y += 5;//Move down
+				Rectangle nextHitbox = { (float)player->x, (float)player->y + walkSpeed, 50, 50 };
+				if (!MapHandler::CheckCollision(nextHitbox, tileSize)) player->y += walkSpeed;//Move down
 			}
 			if (IsKeyDown(KEY_A)) {
 				player->lookingRight = false;
 				player->isWalking = true;
-				if(player->x >= GameConfig::MapBoundaryMinX)player->x -= 5;//Move left
+				Rectangle nextHitbox = { (float)player->x - walkSpeed, (float)player->y, 50, 50 };
+				if (!MapHandler::CheckCollision(nextHitbox, tileSize)) player->x -= walkSpeed;//Move left
 			}
 			if (IsKeyDown(KEY_D)) {
 				player->lookingRight = true;
 				player->isWalking = true;
-				if(player->x <= GameConfig::MapBoundaryMaxX)player->x += 5;//Move right
+				Rectangle nextHitbox = { (float)player->x + walkSpeed, (float)player->y, 50, 50 };
+				if (!MapHandler::CheckCollision(nextHitbox, tileSize)) player->x += walkSpeed;//Move right
 			}
 
 			//Draw Hitbox
@@ -164,6 +190,25 @@ int main() {
 		// --- B.Draw Logic update in foreground ---
 		BeginDrawing();
 		ClearBackground(RAYWHITE);
+		//Draw Map
+		int currentX = 0;
+		int currentY = 0;
+
+		for (int y = 0; y < MapHandler::LevelData.size(); y++)
+		{
+			currentX = 0;
+			for (int x = 0; x < MapHandler::LevelData[y].size(); x++) {
+				int tileID = MapHandler::LevelData[y][x];
+				if (tileID > 20 || tileID < 0) tileID = 0;//If the tile ID is out of bounds we can set it to 0 to avoid errors
+				Rectangle sourceRec = { 0.0f, 0.0f, 16.0f, 16.0f };
+
+				Rectangle destRec = { (float)currentX, (float)currentY, 32.0f, 32.0f };
+				DrawTexturePro(MapTileMapTexture, MapTileRecs[3], destRec, { 0, 0 }, 0.0f, WHITE);
+				DrawTexturePro(MapTileMapTexture, MapTileRecs[tileID], destRec, { 0, 0 }, 0.0f, WHITE);
+				currentX += tileSize;
+			}
+			currentY += tileSize;
+		}
 
 		//set a vector for player position to use in drawing the player sprite
 		Vector2 playerPos = { (float)player->x, (float)player->y };

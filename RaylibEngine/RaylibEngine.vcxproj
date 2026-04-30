@@ -132,12 +132,14 @@
     <ClCompile Include="Combat.cpp" />
     <ClCompile Include="CreateWındowExample.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="MapHandler.cpp" />
     <ClCompile Include="StateMachine.cpp" />
     <ClCompile Include="UIHandler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Combat.h" />
     <ClInclude Include="GameConfig.h" />
+    <ClInclude Include="MapHandler.h" />
     <ClInclude Include="StateMachine.h" />
     <ClInclude Include="UIHandler.h" />
   </ItemGroup>
